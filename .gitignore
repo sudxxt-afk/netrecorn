@@ -1,0 +1,4 @@
+/target
+tracemap_*.json
+.playwright-mcp/
+.serena/
