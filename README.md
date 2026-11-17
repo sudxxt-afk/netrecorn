@@ -1,183 +1,173 @@
-# tracemap
-
-**Cyber-recon traceroute TUI** — трассировка маршрута до хоста с живой таблицей
-хопов, картой мира на Braille-символах и обогащением каждого IP через GeoIP/ASN.
+<div align="center">
 
 ```
- tracemap → google.com (142.250.185.78)        ⠹ tracing…          Hops: 8/30  ◷ 00:12
-┌ Route ─────────────────────────────────────────────┐┌ Route Map ──────────────────────┐
-│ Hop  IP / Host            ASN        Location      ││      .  .  .                    │
-│   1  192.168.1.1          —          private net…  ││   .:::.        you              │
-│   2  10.10.0.1            —          private net…  ││  ::::::.        ●───●           │
-│ ✈ 3  ⚠ 172.70.1.1         AS13335    US, San Fra…  ││   :::::            \            │
-│   4  142.250.185.78       AS15169    US, Mountain… ││    :::              ● (blink)   │
-└────────────────────────────────────────────────────┘└─────────────────────────────────┘
- [↑/↓] Navigate  [e] Export JSON  [r] Re-run  [q] Quit   engine: caracat
+┌┐┌┌─┐┌┬┐┬─┐┌─┐┌─┐┌─┐┬─┐┌┐┌
+│││├┤  │ ├┬┘├┤ │  │ │├┬│││
+┘└┘└─┘ ┴ ┴─└─┘─┘└─┘┴└─┘└┘
 ```
 
-Живой скриншот (трассировка до `1.1.1.1`, Linux + setcap):
+# netrecorn · tracemap
 
-![tracemap TUI](docs/screenshot.png)
+**Cyber-recon traceroute TUI** — весь маршрут до хоста в терминале:
+живая таблица хопов, карта мира на Braille-символах, ASN/геолокация каждого узла.
 
-## Возможности
+[![CI](https://github.com/sudxxt-afk/netrecorn/actions/workflows/ci.yml/badge.svg)](https://github.com/sudxxt-afk/netrecorn/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Rust 1.85+](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg)](#-быстрый-старт)
+[![ratatui 0.30](https://img.shields.io/badge/TUI-ratatui%200.30-7aa2f7.svg)](https://ratatui.rs)
+[![Repo size](https://img.shields.io/github/repo-size/sudxxt-afk/netrecorn)](https://github.com/sudxxt-afk/netrecorn)
+[![Last commit](https://img.shields.io/github/last-commit/sudxxt-afk/netrecorn)](https://github.com/sudxxt-afk/netrecorn/commits/main)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/sudxxt-afk/netrecorn/pulls)
+[![Stars](https://img.shields.io/github/stars/sudxxt-afk/netrecorn?style=social)](https://github.com/sudxxt-afk/netrecorn/stargazers)
 
-- **Движок traceroute**: [`caracat`](https://crates.io/crates/caracat) — Paris
-  traceroute на сырых сокетах (ICMP для IPv4, ICMPv6 для IPv6, 3 пробы на хоп,
-  до 30 хопов). Если прав на сырые сокеты нет — автоматический fallback на
-  системный `traceroute` с потоковым парсингом вывода.
-- **Живое обновление**: хопы появляются в таблице и на карте по мере получения
-  ответов, UI не блокируется (tokio + mpsc).
-- **GeoIP + ASN**: для каждого публичного IP — ASN, организация, страна, город,
-  координаты (ip-api.com, не более 5 одновременных запросов). Кэш на диске
-  (`~/.cache/tracemap/geo.json`, TTL 30 дней) — лимиты API не превышаются.
-- **Reverse DNS**: hostname вместо голого IP, когда он есть.
-- **Карта мира**: `ratatui::widgets::canvas::Map` c `MapResolution::High` и
-  Braille-маркерами; маршрут — линии и точки с цветом по RTT; своя точка
-  (публичный IP) — magenta-пин как на картах (без подписи); анимации:
-  ripple-кольцо при появлении каждого хопа, «дышащие» точки узлов,
-  бегущие пакеты вдоль линии маршрута, пульсация фронта и мигающая белая
-  точка на цели; подписи городов на ключевых хопах без наложений.
-  На широких терминалах (≥120 колонок) карта занимает **70%** экрана:
-  таблица переходит в slim-режим (`#`, IP/Host, RTT, Loss), а ASN и город
-  выбранного хопа показываются строкой деталей под таблицей — контекст
-  не теряется. На средних — 60%, на узких — 40% с полными колонками.
-- **Цветовое кодирование RTT**: `< 50 ms` — зелёный, `50–150 ms` — жёлтый,
-  `> 150 ms` или потери — красный. Молчащий хоп — `* * *` (DarkGray).
-- **Разведывательные фишки**:
-  - `✈` — смена континента между хопами (строка выделяется);
-  - `⚠` — хостинг/облако (AWS, Google, DigitalOcean, …) или страна из
-    эвристического risk-списка (`KP, IR, SY, RU, BY, CN` — правится в
-    `src/models.rs`);
-  - приватные IP помечаются `private network` красным.
-- **Экспорт**: по `e` — JSON-файл `tracemap_<host>_<timestamp>.json`.
-- **Повтор**: по `r` — полный перезапуск трассировки.
+<img src="docs/demo.gif" alt="netrecorn live demo" width="900">
 
-## Установка и запуск
+*Живая трассировка: хопы появляются в реальном времени, ripple-кольца на карте,
+бегущие пакеты вдоль маршрута, RTT-профиль под таблицей.*
 
-Нужен Rust ≥ 1.85 (`rustup`) и libpcap:
+</div>
+
+---
+
+## ⚡ Быстрый старт
 
 ```bash
-# Fedora
-sudo dnf install libpcap-devel
-# Debian/Ubuntu
-sudo apt install libpcap-dev
-# macOS
-brew install libpcap
+# зависимость сборки: libpcap
+sudo dnf install libpcap-devel        # Fedora
+# sudo apt install libpcap-dev        # Debian/Ubuntu
+# brew install libpcap                # macOS
 
 cargo build --release
-```
 
-### Установка как команда `netrecorn`
+# права на сырые сокеты — один раз:
+sudo setcap cap_net_raw,cap_net_admin+ep target/release/tracemap
 
-Чтобы запускать из любой директории просто `netrecorn <host>`:
-
-```bash
-cargo build --release
+# запуск из любой директории:
 mkdir -p ~/.local/bin
 cp target/release/tracemap ~/.local/bin/netrecorn
-sudo setcap cap_net_raw,cap_net_admin+ep ~/.local/bin/netrecorn
+netrecorn google.com
 ```
 
-`~/.local/bin` входит в PATH по умолчанию на Fedora и большинстве дистрибутивов
-(если нет — добавь `export PATH="$HOME/.local/bin:$PATH"` в `~/.bashrc`).
-После установки: `netrecorn google.com` — без sudo, capabilities уже на бинарнике.
-Имя в usage/подсказках подстраивается под имя команды, которой запустили.
+Или просто `sudo ./target/release/tracemap google.com`.
+Без прав приложение само переключится на системный `traceroute`, а если и он
+не может — покажет понятную ошибку с подсказкой.
 
-### Права на сырые сокеты
+## 🎮 Управление
 
-caracat открывает live-capture и инжектит пакеты, поэтому нужны root или
-capabilities. Три варианта:
+| Клавиша | Действие |
+|---|---|
+| `↑` / `↓` (`k` / `j`) | навигация по хопам (выделение следует за фронтом, пока не тронешь стрелки) |
+| `Home` / `End` | первый / последний хоп |
+| `e` | экспорт маршрута в `tracemap_<host>_<timestamp>.json` |
+| `r` | перезапустить трассировку |
+| `q` / `Esc` | выход |
+
+## 🧭 Что внутри
+
+- **Движок**: [`caracat`](https://crates.io/crates/caracat) — Paris-traceroute
+  на сырых сокетах (ICMP / ICMPv6, 3 пробы на хоп, до 30 хопов), потоково в UI
+  через mpsc. Fallback на системный `traceroute` без прав.
+- **GeoIP + ASN**: ip-api.com (≤5 concurrent, дисковый кэш 30 дней) + reverse DNS.
+  API лёг — `N/A`, UI не блокируется никогда.
+- **Карта мира**: `MapResolution::High` + Braille, радарная сетка, маршрут
+  линиями, точки в цвет RTT, magenta-пин «ты», ripple при появлении хопа,
+  «дышащие» узлы, бегущие пакеты, пульс фронта, мигающая цель и arrival-ping.
+  На широких терминалах карта занимает **70%** экрана.
+- **Таблица**: Hop / IP-Host / ASN / Location / RTT / Loss с цветовым кодом
+  (`<50ms` 🟢, `50–150` 🟡, `>150` или потери 🔴), `* * *` для молчащих,
+  красные private-IP, `✈` смена континента, `⚠` хостинг/облако или risk-страна.
+  В slim-режиме ASN/город выбранного хопа — в строке деталей под таблицей.
+- **RTT-профиль**: строка баров `▂▃▄▅▆▇█` по хопам — форма латентности маршрута
+  одним взглядом.
+- **Экспорт**: стабильный JSON (`hop, ip, asn, country, city, lat, lon, rtt_ms,
+  loss_pct`) — готов для jq и скриптов.
+- **Тёмная cyber-recon тема** из коробки: near-black фон, неоновый cyan,
+  токийские фиолетовый/синий в колонках, скруглённые панели.
+
+## 🖼 Скриншоты
+
+<div align="center">
+
+| Маршрут завершён (slim + карта 70%) | Полная таблица (широкий терминал) |
+|---|---|
+| <img src="docs/screenshot.png" width="480"> | <img src="docs/screenshot-full.png" width="480"> |
+
+| Трассировка в полёте | Маршрут по России (ya.ru) |
+|---|---|
+| <img src="docs/screenshot-run.png" width="480"> | <img src="docs/screenshot-ru.png" width="480"> |
+
+</div>
+
+## 🔐 Права на сырые сокеты
+
+caracat инжектит пакеты и слушает ICMP через libpcap → нужен root или capabilities:
 
 ```bash
-# 1. Просто sudo
-sudo ./target/release/tracemap google.com
-
-# 2. Capabilities на бинарник (дальше можно запускать без sudo)
-sudo setcap cap_net_raw,cap_net_admin+ep ./target/release/tracemap
-./target/release/tracemap google.com
-
-# 3. Без прав вообще — приложение само переключится на системный traceroute,
-#    если он доступен без root (иначе покажет ошибку с подсказкой).
-./target/release/tracemap google.com
+sudo setcap cap_net_raw,cap_net_admin+ep ./netrecorn   # Linux, дальше без sudo
+sudo ./netrecorn google.com                            # macOS / ленивый вариант
 ```
 
-> macOS: `setcap` не существует — используйте `sudo`.
+> После каждой пересборки бинарника capabilities слетают — выдай заново.
 
-### Запуск
-
-```bash
-tracemap <hostname|ip>
-# примеры:
-tracemap google.com
-tracemap 1.1.1.1
-tracemap ya.ru
-```
-
-Без аргумента приложение печатает usage и выходит.
-
-## Горячие клавиши
-
-| Клавиша     | Действие                          |
-|-------------|-----------------------------------|
-| `↑` / `↓` (`k` / `j`) | Навигация по таблице хопов |
-| `Home` / `End`        | Первый / последний хоп     |
-| `e`                   | Экспорт маршрута в JSON    |
-| `r`                   | Перезапустить трассировку  |
-| `q` / `Esc`           | Выход                      |
-
-Пока идёт трассировка, выделение автоматически следует за последним хопом;
-после первого нажатия стрелок управление переходит к вам.
-
-## Формат экспорта
-
-Массив объектов (поля стабильные):
+## 📦 Формат экспорта
 
 ```json
 [
   {
-    "hop": 3,
-    "ip": "172.70.1.1",
-    "asn": "AS13335",
+    "hop": 8,
+    "ip": "173.194.121.4",
+    "asn": "AS15169",
     "country": "United States",
-    "city": "San Francisco",
-    "lat": 37.7621,
-    "lon": -122.3971,
-    "rtt_ms": 24.51,
+    "city": "Mountain View",
+    "lat": 37.4056,
+    "lon": -122.0775,
+    "rtt_ms": 52.41,
     "loss_pct": 0.0
   }
 ]
 ```
 
-## Архитектура
+## 🏗 Архитектура
 
 ```
 src/
-├── main.rs      # args, ratatui init/restore, tokio select-loop (keys/net/tick)
-├── app.rs       # состояние: Vec<Hop>, selection, run lifecycle, export
-├── network.rs   # caracat (blocking thread) + system traceroute fallback,
-│                # GeoIP/reverse-DNS enrichment (semaphore 5, disk cache)
-├── ui.rs        # header / Table / Canvas(Map) / footer, cyber-recon палитра
+├── main.rs      # args, ratatui init/restore, tokio select-loop (keys / net / tick)
+├── app.rs       # состояние: Vec<Hop>, selection, run lifecycle (run_id), export
+├── network.rs   # caracat blocking-worker + fallback, GeoIP/reverse-DNS enrichment
+├── ui.rs        # header / table / RTT-profile / Canvas(Map) / footer, палитра
 └── models.rs    # Hop, GeoInfo, NetEvent, ExportHop, континенты, risk-эвристики
 ```
 
-Сетевой слой шлёт события `RunEvent { run_id, event }` в mpsc-канал; `run_id`
-гарантирует, что события от прерванного запуска (после `r`) игнорируются.
-caracat полностью блокирующий (libpcap), поэтому весь его цикл живёт в
-`spawn_blocking` и никогда не трогает async-reactor. Внутри движка блокирующие
-чтения pcap вынесены в воркер-поток со std-каналом: крейт `pcap` проглатывает
-таймауты чтения, и `recv_timeout` — единственный способ гарантировать
-deadline на молчащий хоп.
+Сетевой слой шлёт `RunEvent { run_id, event }` в mpsc: события прерванного
+запуска игнорируются. Блокирующие чтения pcap вынесены в воркер-поток с
+`recv_timeout` — крейт `pcap` проглатывает таймауты, и это единственный способ
+гарантировать deadline на молчащий хоп. Geo-кэш: `~/.cache/tracemap/geo.json`.
 
-## Troubleshooting
+## 🧰 Troubleshooting
 
-- **«Raw socket permission denied…»** — запустите через `sudo` или выдайте
-  capabilities (см. выше). Без прав приложение пробует системный `traceroute`.
-- **GeoIP показывает `N/A`** — ip-api.com недоступен/лимит; UI не блокируется,
-  данные подтянутся из кэша при следующем запуске.
-- **Карта пустая** — у хопов ещё нет координат (geo в полёте) либо все хопы
-  приватные/молчащие.
-- **Сборка падает на `pcap`** — не установлен `libpcap-devel`/`libpcap-dev`.
+| Симптом | Лечение |
+|---|---|
+| `Raw socket permission denied…` | `sudo` или `setcap` (см. выше) |
+| GeoIP = `N/A` | ip-api недоступен/лимит; кэш подтянет при следующем запуске |
+| Mapa пустая | у хопов ещё нет координат или все private/молчащие |
+| Сборка падает на `pcap` | нет `libpcap-devel` / `libpcap-dev` |
+| `failed to initialize terminal` | запускай в настоящем терминале (TTY), не в панели IDE |
 
-## Лицензия
+## 🛣 Roadmap
 
-MIT
+- [ ] fullscreen-карта по `m`
+- [ ] переключатель тем (`t`): Tokyo Night / Catppuccin / Dracula / matrix
+- [ ] sparkline RTT выбранного хопа во времени
+- [ ] легенда карты по `?`
+- [ ] IPv6-маршруты на карте (движок уже умеет ICMPv6)
+
+## 📄 Лицензия
+
+[MIT](LICENSE) © sudxxt-afk
+
+<div align="center">
+
+**Сделано на 🦀 + [ratatui](https://ratatui.rs) · если понравилось — ⭐ репо**
+
+</div>

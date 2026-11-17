@@ -89,7 +89,14 @@ async fn run_inner(
     }
 
     let target_ip = resolve(target).await?;
-    emit(tx, run_id, NetEvent::Started { target_ip, engine: "caracat" });
+    emit(
+        tx,
+        run_id,
+        NetEvent::Started {
+            target_ip,
+            engine: "caracat",
+        },
+    );
 
     // Our own public IP (map origin) — independent of the traceroute.
     {
@@ -122,14 +129,23 @@ async fn run_inner(
                 run_id,
                 NetEvent::Notice(format!("caracat: {reason} — using system traceroute")),
             );
-            emit(tx, run_id, NetEvent::Started { target_ip, engine: "system traceroute" });
-            system_traceroute(target_ip, tx, run_id, cancel).await.map_err(|err| match err {
-                EngineError::Permission(_) => anyhow!(
-                    "Raw socket permission denied. Try running with sudo or \
+            emit(
+                tx,
+                run_id,
+                NetEvent::Started {
+                    target_ip,
+                    engine: "system traceroute",
+                },
+            );
+            system_traceroute(target_ip, tx, run_id, cancel)
+                .await
+                .map_err(|err| match err {
+                    EngineError::Permission(_) => anyhow!(
+                        "Raw socket permission denied. Try running with sudo or \
                      setcap cap_net_raw,cap_net_admin+ep on the tracemap binary."
-                ),
-                EngineError::Other(m) => anyhow!("traceroute failed: {m}"),
-            })
+                    ),
+                    EngineError::Other(m) => anyhow!("traceroute failed: {m}"),
+                })
         }
     }
 }
@@ -174,7 +190,9 @@ fn caracat_engine(
 
     let iface = get_default_interface();
     if iface.is_empty() {
-        return Err(EngineError::Other("no default network interface found".into()));
+        return Err(EngineError::Other(
+            "no default network interface found".into(),
+        ));
     }
     let instance_id: u16 = rand::random();
     let mut sender = Sender::new(&iface, None, None, instance_id, false).map_err(map_err)?;
@@ -270,7 +288,11 @@ fn caracat_engine(
             NetEvent::Probe {
                 hop_num: ttl,
                 ip: hop_ip,
-                rtt_ms: if recv > 0 { Some(rtt_sum / f64::from(recv)) } else { None },
+                rtt_ms: if recv > 0 {
+                    Some(rtt_sum / f64::from(recv))
+                } else {
+                    None
+                },
                 sent: PROBES_PER_HOP,
                 recv,
             },
@@ -333,9 +355,22 @@ async fn system_traceroute(
         hops_seen += 1;
         let sent = (rtts.len() + usize::from(timeouts)).min(255) as u8;
         let recv = rtts.len().min(255) as u8;
-        let rtt_ms =
-            if recv > 0 { Some(rtts.iter().sum::<f64>() / f64::from(recv)) } else { None };
-        emit(tx, run_id, NetEvent::Probe { hop_num, ip, rtt_ms, sent, recv });
+        let rtt_ms = if recv > 0 {
+            Some(rtts.iter().sum::<f64>() / f64::from(recv))
+        } else {
+            None
+        };
+        emit(
+            tx,
+            run_id,
+            NetEvent::Probe {
+                hop_num,
+                ip,
+                rtt_ms,
+                sent,
+                recv,
+            },
+        );
         if let Some(ip) = ip {
             enqueue_enrichment(ip, tx.clone(), run_id);
             if ip == target_ip {
@@ -425,7 +460,14 @@ fn enqueue_enrichment(ip: IpAddr, tx: UnboundedSender<RunEvent>, run_id: u64) {
     }
     tokio::spawn(async move {
         let geo_info = geo::lookup(ip).await;
-        emit(&tx, run_id, NetEvent::Geo { ip, geo: Box::new(geo_info) });
+        emit(
+            &tx,
+            run_id,
+            NetEvent::Geo {
+                ip,
+                geo: Box::new(geo_info),
+            },
+        );
 
         let rev = tokio::task::spawn_blocking(move || dns_lookup::lookup_addr(&ip)).await;
         if let Ok(Ok(hostname)) = rev {
@@ -471,7 +513,10 @@ pub mod geo {
                 .ok()
                 .and_then(|raw| serde_json::from_str::<HashMap<String, CacheEntry>>(&raw).ok())
                 .unwrap_or_default();
-            Self { entries: Mutex::new(entries), path }
+            Self {
+                entries: Mutex::new(entries),
+                path,
+            }
         }
 
         fn get(&self, key: &str) -> Option<GeoInfo> {
@@ -486,7 +531,13 @@ pub mod geo {
         fn insert(&self, key: String, geo: GeoInfo) {
             {
                 let mut entries = self.entries.lock().unwrap();
-                entries.insert(key, CacheEntry { geo, at: chrono::Utc::now().timestamp() });
+                entries.insert(
+                    key,
+                    CacheEntry {
+                        geo,
+                        at: chrono::Utc::now().timestamp(),
+                    },
+                );
             }
             self.save();
         }

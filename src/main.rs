@@ -52,7 +52,9 @@ fn main() -> anyhow::Result<()> {
         std::process::exit(1);
     }
 
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
     Ok(runtime.block_on(async move {
         let mut app = App::new(target);
         app.start_run();
